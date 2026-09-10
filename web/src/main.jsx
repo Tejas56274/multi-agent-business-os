@@ -1,0 +1,59 @@
+import React,{useEffect,useState}from"react";import{createRoot}from"react-dom/client";import{Activity,ArrowUpRight,BrainCircuit,Code2,FileText,LayoutDashboard,Mail,Menu,MessageSquare,Moon,Plus,Receipt,Search,Settings,Sparkles,Sun,Workflow,Mic2,BookOpen,ChevronRight,LogOut}from"lucide-react";import"./styles.css";
+const API=import.meta.env.VITE_API_URL||"http://localhost:8081/api/v1";
+const nav=[["Dashboard",LayoutDashboard,"dashboard"],["AI Chat",MessageSquare,"chat"],["Documents",FileText,"documents"],["Research",BrainCircuit,"research"],["Meetings",Mic2,"meetings"],["Email AI",Mail,"email"],["Invoices",Receipt,"invoices"],["Knowledge Base",BookOpen,"knowledge"],["Workflows",Workflow,"workflows"],["Coding Assistant",Code2,"coding"]];
+function App(){const[token,setToken]=useState(localStorage.getItem("aibos_token")||"");const[page,setPage]=useState("dashboard");const[dark,setDark]=useState(true);const[side,setSide]=useState(true);const[user,setUser]=useState(null);const[ws,setWs]=useState(localStorage.getItem("aibos_workspace")||"");useEffect(()=>{if(token)fetch(API+"/auth/me",{headers:{Authorization:"Bearer "+token}}).then(r=>r.ok?r.json():null).then(setUser).catch(()=>{})},[token]);if(!token)return <Auth onLogin={(t,w)=>{setToken(t);setWs(w)}}/>;return <div className={dark?"app dark":"app"}><aside className={side?"sidebar":"sidebar collapsed"}><div className="brand"><div className="logo"><Sparkles size={18}/></div>{side&&<><b>Business OS</b><span className="tag">AI</span></>}</div>{side&&<div className="workspace"><div className="avatar">T</div><div><small>Workspace</small><strong>My Business</strong></div></div>}<div className="navlabel">{side?"WORKSPACE":""}</div>{nav.map(([n,I,id])=><button className={"nav "+(page===id?"active":"")}onClick={()=>setPage(id)}key={id}title={n}><I size={18}/>{side&&<span>{n}</span>}</button>)}{side&&<div className="bottom"><button className="nav"><Settings size={18}/>Settings</button><button className="nav"onClick={()=>{localStorage.clear();setToken("")}}><LogOut size={18}/>Sign out</button></div>}</aside><main className="main"><header><button className="icon"onClick={()=>setSide(!side)}><Menu/></button><div className="search"><Search size={16}/><input placeholder="Search workspace..."/></div><button className="icon"onClick={()=>setDark(!dark)}>{dark?<Sun/>:<Moon/>}</button><div className="user"><div className="avatar">T</div>{user?.full_name||user?.email||"User"}</div></header><section className="content">{page==="dashboard"?<Dashboard go={setPage}/>:page==="chat"?<Chat token={token} workspace={ws}/>:page==="documents"?<Documents token={token} workspace={ws}/>:<Module page={page}/>}</section></main></div>}
+function Auth({onLogin}){const[m,setM]=useState("login"),[email,setE]=useState(""),[pass,setP]=useState(""),[name,setN]=useState(""),[err,setErr]=useState("");async function submit(e){e.preventDefault();setErr("");try{if(m==="register"){let r=await fetch(API+"/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,full_name:name,password:pass})});if(!r.ok)throw Error(await r.text())}let r=await fetch(API+"/auth/login",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({username:email,password:pass})});let d=await r.json();if(!r.ok)throw Error(d.detail||"Login failed");localStorage.setItem("aibos_token",d.access_token);let w=await fetch(API+"/workspaces",{headers:{Authorization:"Bearer "+d.access_token}}),a=await w.json(),id=a?.[0]?.id||"";localStorage.setItem("aibos_workspace",id);onLogin(d.access_token,id)}catch(x){setErr(x.message)}}return <div className="auth"><div className="authcard"><div className="logo big"><Sparkles/></div><h1>AI Business OS</h1><p>One intelligent workspace for your business.</p><div className="tabs"><button className={m==="login"?"sel":""}onClick={()=>setM("login")}>Sign in</button><button className={m==="register"?"sel":""}onClick={()=>setM("register")}>Create account</button></div><form onSubmit={submit}>{m==="register"&&<input placeholder="Full name"value={name}onChange={e=>setN(e.target.value)}required/>}<input type="email"placeholder="Email"value={email}onChange={e=>setE(e.target.value)}required/><input type="password"placeholder="Password"value={pass}onChange={e=>setP(e.target.value)}required/>{err&&<div className="error">{err}</div>}<button className="primary wide">{m==="login"?"Sign in":"Create account"}<ArrowUpRight size={16}/></button></form></div></div>}
+function Dashboard({go}){let stats=[["AI conversations","24",MessageSquare],["Documents indexed","128",FileText],["Research runs","37",BrainCircuit],["Workflow jobs","19",Workflow]];return <><div className="head"><div><label>OVERVIEW</label><h1>Good morning, Tejas.</h1><p>Your AI workspace at a glance.</p></div><button className="primary"onClick={()=>go("chat")}><Plus size={16}/>New AI task</button></div><div className="stats">{stats.map(([t,v,I])=><div className="stat"><div>{t}<I size={17}/></div><strong>{v}</strong><small>↑ 18% this month</small></div>)}</div><div className="grid"><div className="panel"><h3>AI activity</h3><p>Workspace activity over the last 7 days</p><div className="bars">{[35,55,46,70,58,84,68].map((v,i)=><div><i style={{height:v+"%"}}></i><small>{["M","T","W","T","F","S","S"][i]}</small></div>)}</div></div><div className="panel"><h3>Quick actions</h3><p>Jump into an AI workflow</p>{[["Ask AI",MessageSquare,"chat"],["Analyze document",FileText,"documents"],["Research topic",BrainCircuit,"research"],["Run workflow",Workflow,"workflows"]].map(([t,I,id])=><button className="quick"onClick={()=>go(id)}><I size={17}/><span>{t}<small>Start a new task</small></span><ChevronRight size={16}/></button>)}</div></div><div className="panel activity"><h3>Recent activity</h3>{["AI Business Plan generated","Q4 Strategy.pdf indexed","Competitor research completed"].map((x,i)=><div className="row"><div className="activityIcon"><Activity size={16}/></div><span><b>{x}</b><small>{["AI Chat","Documents","Research"][i]} · {i+2} min ago</small></span><ChevronRight size={16}/></div>)}</div></>}
+function Chat({token,workspace}){const[msgs,setMsgs]=useState([{role:"assistant",content:"Hey! I'm your AI Business OS assistant. Ask me to analyze a document, create a business plan, research a market, or help with a business task."}]);const[text,setText]=useState(""),[loading,setLoading]=useState(false),[cid,setCid]=useState("");async function send(e){e.preventDefault();if(!text.trim()||loading)return;let q=text.trim();setText("");setMsgs(m=>[...m,{role:"user",content:q}]);setLoading(true);try{let id=cid;if(!id){let r=await fetch(API+"/chat/conversations",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({workspace_id:workspace,title:q.slice(0,50),kind:"chat"})});let d=await r.json();id=d.id;setCid(id)}let r=await fetch(API+"/chat/conversations/"+id+"/messages",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({content:q,stream:false})}),d=await r.json();setMsgs(m=>[...m,{role:"assistant",content:d?.content||d?.message||d?.response||JSON.stringify(d)}])}catch{setMsgs(m=>[...m,{role:"assistant",content:"Backend connection failed. Check the API URL."}])}finally{setLoading(false)}}return <><div className="head"><div><label>AI WORKSPACE</label><h1>AI Chat</h1><p>Reason, plan and execute business tasks with AI.</p></div></div><div className="chat"><div className="messages">{msgs.map((m,i)=><div className={"msg "+m.role}><div className="msgavatar">{m.role==="user"?"T":<Sparkles size={14}/>}</div><div>{m.content}</div></div>)}{loading&&<div className="msg"><div className="msgavatar"><Sparkles size={14}/></div><div>Thinking...</div></div>}</div><form className="composer"onSubmit={send}><textarea
+  value={text}
+  onChange={e=>setText(e.target.value)}
+  onKeyDown={e=>{
+    if(e.key==="Enter"&&!e.shiftKey){
+      e.preventDefault();
+      e.currentTarget.form?.requestSubmit();
+    }
+  }}
+  placeholder="Ask your AI business assistant anything..."
+  rows="2"
+/><button className="primary">Send <ArrowUpRight size={15}/></button></form></div></>}
+
+function Documents({token,workspace}){
+ const [file,setFile]=useState(null),[uploading,setUploading]=useState(false),[status,setStatus]=useState(""),[error,setError]=useState("");
+ const inputId="document-upload";
+ async function upload(){
+  if(!file||uploading)return;
+  if(!workspace){setError("No workspace found. Sign out and sign in again.");return}
+  setUploading(true);setError("");setStatus("Uploading and starting indexing…");
+  try{
+   const form=new FormData();form.append("workspace_id",workspace);form.append("file",file);
+   const r=await fetch(API+"/documents",{method:"POST",headers:{Authorization:"Bearer "+token},body:form});
+   const raw=await r.text();let data=null;try{data=raw?JSON.parse(raw):null}catch{}
+   if(!r.ok)throw new Error(data?.detail||raw||`Upload failed (${r.status})`);
+   const docId=data?.id||data?.doc_id||data?.document_id;
+   setStatus(docId?`Upload accepted. Document ID: ${docId}`:"Upload accepted. Document indexing has started.");
+   setFile(null);document.getElementById(inputId).value="";
+  }catch(e){setError(e.message||"Upload failed. Check the backend connection.");setStatus("");}
+  finally{setUploading(false)}
+ }
+ return <>
+  <div className="head"><div><label>AI BUSINESS OS</label><h1>Documents</h1><p>Upload, index and chat with business documents.</p></div><label htmlFor={inputId} className="primary createLabel"><Plus size={16}/>Choose file</label></div>
+  <div className="panel uploadPanel">
+   <input id={inputId} className="fileInput" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg" onChange={e=>{setFile(e.target.files?.[0]||null);setError("");setStatus("")}}/>
+   <label htmlFor={inputId} className={"dropzone "+(file?"selected":"")}>
+    <div className="emptyicon"><FileText size={28}/></div>
+    <h2>{file?file.name:"Drop a document here"}</h2>
+    <p>{file?`${(file.size/1024/1024).toFixed(2)} MB · Ready to upload`:"or click to browse from your computer"}</p>
+    <span className="secondary">Browse files</span>
+   </label>
+   <div className="uploadFooter">
+    <span className="hint">PDF, DOCX, PPTX, TXT, PNG, JPG</span>
+    <button className="primary" disabled={!file||uploading} onClick={upload}>{uploading?"Uploading…":"Upload & index"}<ArrowUpRight size={15}/></button>
+   </div>
+   {status&&<div className="success">✓ {status}</div>}
+   {error&&<div className="error">{error}</div>}
+  </div>
+ </>
+}
+
+function Module({page}){let data={documents:["Documents",FileText,"Upload, index and chat with business documents."],research:["AI Research",BrainCircuit,"Run structured research and generate reports."],meetings:["Meetings",Mic2,"Turn recordings into summaries and action items."],email:["Email AI",Mail,"Draft and reply to business emails with AI."],invoices:["Invoices",Receipt,"Extract and review invoice information."],knowledge:["Knowledge Base",BookOpen,"Search your team's AI-ready knowledge."],workflows:["Multi-Agent Workflows",Workflow,"Run coordinated AI workflows."],coding:["Coding Assistant",Code2,"AI help for implementation and debugging."]}[page];let[I]=[data[1]];return <><div className="head"><div><label>AI BUSINESS OS</label><h1>{data[0]}</h1><p>{data[2]}</p></div><button className="primary"><Plus size={16}/>Create</button></div><div className="panel empty"><div className="emptyicon"><I size={28}/></div><h2>{data[0]} workspace</h2><p>The frontend shell is ready to connect this module to the existing FastAPI endpoint.</p><button className="secondary">Get started</button></div></>}
+createRoot(document.getElementById("root")).render(<App/>);
