@@ -1,9 +1,13 @@
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+    )
 
     # Core
     SECRET_KEY: str = "dev-secret"
@@ -13,7 +17,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_DAYS: int = 14
 
     # LLM
-    LLM_PROVIDER: str = "openai"          # openai | local
+    LLM_PROVIDER: str = "openai"
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
     LOCAL_LLM_BASE_URL: str = "http://localhost:11434/v1"
@@ -22,13 +26,17 @@ class Settings(BaseSettings):
     # Embeddings / vectors
     EMBEDDINGS_PROVIDER: str = "sentence-transformers"
     EMBEDDINGS_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
-    VECTOR_BACKEND: str = "faiss"         # faiss | milvus
+    VECTOR_BACKEND: str = "faiss"
     VECTOR_DIR: str = "/data/vectors"
     MILVUS_URI: str = "http://localhost:19530"
 
     # Infra
-    DATABASE_URL: str = "postgresql+asyncpg://aibos:aibos@localhost:5432/aibos"
-    SYNC_DATABASE_URL: str = "postgresql+psycopg://aibos:aibos@localhost:5432/aibos"
+    DATABASE_URL: str = (
+        "postgresql+asyncpg://aibos:aibos@localhost:5432/aibos"
+    )
+    SYNC_DATABASE_URL: str = (
+        "postgresql+psycopg://aibos:aibos@localhost:5432/aibos"
+    )
     REDIS_URL: str = "redis://localhost:6379/0"
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"

@@ -5,3 +5,5 @@ __pycache__/
 mobile/build/
 mobile/.dart_tool/
 *.faiss
+
+backend/celerybeat-schedule

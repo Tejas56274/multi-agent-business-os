@@ -1,10 +1,13 @@
 """LLM provider abstraction.
 
-Every module gets its model from here — swapping OpenAI for a local
-OpenAI-compatible server (Ollama, vLLM, LM Studio) is a .env change only.
+Supports OpenAI-compatible providers such as OpenAI and Groq,
+as well as local OpenAI-compatible servers such as Ollama.
 """
+
 from functools import lru_cache
+
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+
 from app.core.config import settings
 
 
@@ -17,7 +20,9 @@ def get_chat_model(temperature: float = 0.3):
             model=settings.LOCAL_LLM_MODEL,
             temperature=temperature,
         )
+
     return ChatOpenAI(
+        base_url="https://api.groq.com/openai/v1",
         api_key=settings.OPENAI_API_KEY,
         model=settings.OPENAI_MODEL,
         temperature=temperature,
@@ -27,20 +32,36 @@ def get_chat_model(temperature: float = 0.3):
 @lru_cache
 def get_embeddings():
     if settings.EMBEDDINGS_PROVIDER == "openai":
-        return OpenAIEmbeddings(api_key=settings.OPENAI_API_KEY)
+        return OpenAIEmbeddings(
+            api_key=settings.OPENAI_API_KEY
+        )
+
     from langchain_community.embeddings import HuggingFaceEmbeddings
-    return HuggingFaceEmbeddings(model_name=settings.EMBEDDINGS_MODEL)
+
+    return HuggingFaceEmbeddings(
+        model_name=settings.EMBEDDINGS_MODEL
+    )
 
 
-async def stream_chat(messages: list[tuple[str, str]], temperature: float = 0.3):
+async def stream_chat(
+    messages: list[tuple[str, str]],
+    temperature: float = 0.3,
+):
     """Async generator of tokens for SSE streaming."""
+
     llm = get_chat_model(temperature)
+
     async for chunk in llm.astream(messages):
         if chunk.content:
             yield chunk.content
 
 
-async def complete(messages: list[tuple[str, str]], temperature: float = 0.3) -> str:
+async def complete(
+    messages: list[tuple[str, str]],
+    temperature: float = 0.3,
+) -> str:
     llm = get_chat_model(temperature)
+
     resp = await llm.ainvoke(messages)
+
     return resp.content

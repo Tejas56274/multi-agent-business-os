@@ -1,38 +1,107 @@
 from datetime import datetime, timedelta, timezone
+
+import bcrypt
 from jose import jwt, JWTError
-from passlib.context import CryptContext
+
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-ALGO = "HS256"
+
+ALGORITHM = "HS256"
 
 
-def hash_password(p: str) -> str:
-    return pwd_context.hash(p)
+def hash_password(password: str) -> str:
+    password_bytes = password.encode("utf-8")
+
+    if len(password_bytes) > 72:
+        raise ValueError("Password cannot be longer than 72 bytes.")
+
+    return bcrypt.hashpw(
+        password_bytes,
+        bcrypt.gensalt(),
+    ).decode("utf-8")
 
 
-def verify_password(p: str, hashed: str) -> bool:
-    return pwd_context.verify(p, hashed)
+def verify_password(password: str, hashed_password: str) -> bool:
+    password_bytes = password.encode("utf-8")
+    hashed_bytes = hashed_password.encode("utf-8")
 
+    if len(password_bytes) > 72:
+        return False
 
-def _token(sub: str, ttl: timedelta, kind: str) -> str:
-    payload = {"sub": sub, "type": kind, "exp": datetime.now(timezone.utc) + ttl}
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGO)
-
-
-def create_access_token(user_id: str) -> str:
-    return _token(user_id, timedelta(minutes=settings.ACCESS_TOKEN_MINUTES), "access")
-
-
-def create_refresh_token(user_id: str) -> str:
-    return _token(user_id, timedelta(days=settings.REFRESH_TOKEN_DAYS), "refresh")
-
-
-def decode_token(token: str, expect: str = "access") -> str | None:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGO])
-        if payload.get("type") != expect:
+        return bcrypt.checkpw(
+            password_bytes,
+            hashed_bytes,
+        )
+    except (ValueError, TypeError):
+        return False
+
+
+def create_access_token(
+    subject: str,
+    expires_delta: timedelta | None = None,
+) -> str:
+    if expires_delta is None:
+        expires_delta = timedelta(
+            minutes=settings.ACCESS_TOKEN_MINUTES
+        )
+
+    expire = datetime.now(timezone.utc) + expires_delta
+
+    payload = {
+        "sub": str(subject),
+        "exp": expire,
+        "type": "access",
+    }
+
+    return jwt.encode(
+        payload,
+        settings.SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
+
+
+def create_refresh_token(
+    subject: str,
+    expires_delta: timedelta | None = None,
+) -> str:
+    if expires_delta is None:
+        expires_delta = timedelta(
+            days=settings.REFRESH_TOKEN_DAYS
+        )
+
+    expire = datetime.now(timezone.utc) + expires_delta
+
+    payload = {
+        "sub": str(subject),
+        "exp": expire,
+        "type": "refresh",
+    }
+
+    return jwt.encode(
+        payload,
+        settings.SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
+
+
+def decode_token(
+    token: str,
+    expect: str | None = None,
+) -> str | None:
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+
+        token_type = payload.get("type")
+
+        if expect is not None and token_type != expect:
             return None
+
         return payload.get("sub")
+
     except JWTError:
         return None
