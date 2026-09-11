@@ -40,3 +40,5 @@ Pillow==10.4.0
 
 # Push
 firebase-admin==6.5.0
+
+psycopg[binary]
