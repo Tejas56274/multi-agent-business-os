@@ -1,0 +1,61 @@
+
+name: AI Developer Daily Monitor
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  project-monitor:
+    name: Repository Health Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check project structure
+        run: |
+          echo "## AI Business OS Health Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Repository: $GITHUB_REPOSITORY" >> "$GITHUB_STEP_SUMMARY"
+          echo "Date: $(date -u)" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Project folders" >> "$GITHUB_STEP_SUMMARY"
+
+          for folder in backend web mobile nginx scripts docs; do
+            if [ -d "$folder" ]; then
+              echo "- ✅ $folder" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚠️ $folder missing" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Important files" >> "$GITHUB_STEP_SUMMARY"
+
+          for file in README.md docker-compose.yml .env.example; do
+            if [ -f "$file" ]; then
+              echo "- ✅ $file" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚠️ $file missing" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Source file count" >> "$GITHUB_STEP_SUMMARY"
+          find . -type f \
+            -not -path './.git/*' \
+            | wc -l >> "$GITHUB_STEP_SUMMARY"
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Health check completed successfully." >> "$GITHUB_STEP_SUMMARY"
