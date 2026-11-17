@@ -1,7 +1,24 @@
-"""LLM structured extraction of invoice fields from OCR text, with validation."""
+"""LLM structured extraction of invoice fields from OCR text, with validation.
+
+Improved JSON cleaning: handles markdown fences and optional language tags robustly.
+"""
 import json
+import re
 from app.schemas.invoice import InvoiceFields
 from app.services.llm import get_chat_model
+
+
+def _clean_json_output(text: str) -> str:
+    """Normalize LLM JSON output by removing markdown fences and language tags.
+
+    Handles cases such as ```json ... ```, ``` ... ```, or a leading "json" word.
+    """
+    cleaned = re.sub(r"^\s*```\s*\w*\s*", "", text, flags=re.MULTILINE)
+    cleaned = re.sub(r"\s*```\s*$", "", cleaned, flags=re.MULTILINE)
+    cleaned = cleaned.strip()
+    if cleaned.lower().startswith("json"):
+        cleaned = cleaned[4:].lstrip()
+    return cleaned
 
 
 def extract_invoice_fields(raw_text: str) -> dict:
@@ -12,7 +29,7 @@ def extract_invoice_fields(raw_text: str) -> dict:
                    f"(no markdown fences):\n{schema}"),
         ("user", raw_text[:12000]),
     ])
-    text = resp.content.strip().strip("`").removeprefix("json").strip()
+    text = _clean_json_output(resp.content)
     fields = InvoiceFields.model_validate_json(text)
 
     # sanity check: line items should roughly reconcile with subtotal
