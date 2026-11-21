@@ -18,27 +18,42 @@ def build_workflow_graph(workspace_id: str):
     llm = get_chat_model(temperature=0.2)
 
     def supervisor(state: SupervisorState):
-        history = "\n".join(f"{m['agent']}: {m['content'][:600]}" for m in state["messages"])
+        # Build a concise history for the supervisor LLM
+        history = "\n".join(
+            f"{m['agent']}: {m['content'][:600]}" for m in state["messages"]
+        )
         resp = llm.invoke([
             ("system",
              "You are a supervisor routing work between agents: researcher (gathers facts), "
              "writer (drafts prose), analyst (numbers, pros/cons, structure). "
-             'Reply with JSON only: {"next": "researcher|writer|analyst|FINISH", "instruction": "..."}'),
+             "Reply with JSON only: {\"next\": \"researcher|writer|analyst|FINISH\", \"instruction\": \"...\"}"),
             ("user", f"Task: {state['task']}\n\nWork so far:\n{history or '(none)'}"),
         ])
+        # The LLM may prepend a language hint like "json" or wrap the output in backticks.
+        # Strip backticks, remove an optional "json" prefix (case‑insensitive), and trim whitespace.
+        raw = resp.content.strip().strip("`")
+        # Remove a leading "json" token if present, ignoring case and any following whitespace.
+        if raw.lower().startswith("json"):
+            raw = raw[4:].lstrip()
         try:
-            decision = json.loads(resp.content.strip().strip("`").removeprefix("json"))
+            decision = json.loads(raw)
         except (json.JSONDecodeError, AttributeError):
+            # Fallback to a safe default if parsing fails.
             decision = {"next": "FINISH", "instruction": ""}
         nxt = decision.get("next", "FINISH")
         if state["hops"] >= MAX_HOPS:
             nxt = "FINISH"
-        return {"next": nxt, "hops": state["hops"] + 1,
-                "messages": [{"agent": "supervisor", "content": decision.get("instruction", "")}]}
+        return {
+            "next": nxt,
+            "hops": state["hops"] + 1,
+            "messages": [{"agent": "supervisor", "content": decision.get("instruction", "")}],
+        }
 
     def make_worker(name: str, system: str):
         def worker(state: SupervisorState):
-            instruction = state["messages"][-1]["content"] if state["messages"] else state["task"]
+            instruction = (
+                state["messages"][-1]["content"] if state["messages"] else state["task"]
+            )
             context = kb_search(workspace_id, instruction) if name == "researcher" else ""
             resp = llm.invoke([
                 ("system", system),
@@ -54,7 +69,8 @@ def build_workflow_graph(workspace_id: str):
     g.add_node("analyst", make_worker("analyst", "You analyze: numbers, comparisons, risks, recommendations."))
     g.set_entry_point("supervisor")
     g.add_conditional_edges(
-        "supervisor", lambda s: s["next"],
+        "supervisor",
+        lambda s: s["next"],
         {**{w: w for w in WORKERS}, "FINISH": END},
     )
     for w in WORKERS:
