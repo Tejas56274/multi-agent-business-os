@@ -11,7 +11,11 @@ async def draft_email(intent: str, context: str, tone: str) -> dict:
         ("user", f"Goal: {intent}\n\nBackground/thread:\n{context or '(none)'}"),
     ])
     lines = content.splitlines()
-    subject = lines[0].removeprefix("Subject:").strip() if lines else ""
+    # Robustly extract subject even if the LLM deviates slightly
+    if lines and lines[0].lower().startswith("subject:"):
+        subject = lines[0].split(":", 1)[1].strip()
+    else:
+        subject = ""
     body = "\n".join(lines[1:]).strip()
     return {"subject": subject, "body": body}
 
@@ -23,5 +27,9 @@ async def reply_email(thread: str, instruction: str) -> dict:
         ("user", f"Thread:\n{thread}\n\nInstruction: {instruction}"),
     ])
     lines = content.splitlines()
-    return {"subject": lines[0].removeprefix("Subject:").strip() if lines else "",
-            "body": "\n".join(lines[1:]).strip()}
+    if lines and lines[0].lower().startswith("subject:"):
+        subject = lines[0].split(":", 1)[1].strip()
+    else:
+        subject = ""
+    body = "\n".join(lines[1:]).strip()
+    return {"subject": subject, "body": body}
